@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.orig
+*.log
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# --- Environment Files ---
+.env
+.env.*
+!.env.example
+
+# --- Docker ---
+pg_data/
+meili_data/
+caddy_data/
+caddy_config/
+docker-compose.override.yml
+
+# Docker build leftovers
+*.pid
+*.tar
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# --- FastAPI ---
+*.sqlite
+*.db
+
+# --- Optional ---
+pytest_cache/
+coverage/
+coverage.xml

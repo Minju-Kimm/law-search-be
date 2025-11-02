@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: civil_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: law
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # 초기 스키마 자동 생성
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d law"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  meili:
+    image: getmeili/meilisearch:v1.8
+    container_name: civil_meili
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+    volumes:
+      - meili_data:/meili_data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: civil_api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meili:
+        condition: service_healthy
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2
+    container_name: civil_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"   # 도메인 있을 때만 켜자 (자동 HTTPS)
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      api:
+        condition: service_started
+    networks: [internal, public]
+
+networks:
+  internal:
+    driver: bridge
+  public:
+    driver: bridge
+
+volumes:
+  pg_data:
+  meili_data:
+  caddy_data:
+  caddy_config:

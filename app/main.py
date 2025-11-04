@@ -32,16 +32,51 @@ app = FastAPI(
 # ============================================
 # CORS 설정
 # ============================================
+def parse_origins(env_value: str):
+    """
+    'a,b , c/' 같은 입력을
+    - 공백 제거
+    - 끝의 슬래시 제거
+    - http/https 스킴 필수
+    로 정리해서 리스트로 반환
+    """
+    origins = []
+    for raw in (env_value or "").split(","):
+        o = raw.strip()
+        if not o:
+            continue
+        if o.endswith("/"):
+            o = o[:-1]
+        if not (o.startswith("http://") or o.startswith("https://")):
+            raise ValueError(f"CORS_ORIGINS 값에 스킴이 없어요: {o}")
+        origins.append(o)
+    return origins
 
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")
+ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+origins = parse_origins(CORS_ORIGINS)
+
+# 개발 편의: DEBUG면 로컬 자동 허용
+if DEBUG:
+    origins.extend(["http://localhost:3000", "http://127.0.0.1:3000"])
+
+# 안전장치 1) 비어있을 때 와일드카드 금지(실수 방지)
+if not origins:
+    raise RuntimeError("CORS_ORIGINS가 비어있어요. 운영에서는 반드시 명시해 주세요.")
+
+# 안전장치 2) credentials=True + '*' 조합 금지
+if ALLOW_CREDENTIALS and any(o == "*" for o in origins):
+    raise RuntimeError("allow_credentials=True에서는 '*'를 사용할 수 없습니다.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
-    allow_methods=["*"],
+    allow_origins=origins,            # 환경변수 기반
+    allow_credentials=ALLOW_CREDENTIALS,
+    allow_methods=["GET", "OPTIONS"], # 필요 메서드만
     allow_headers=["*"],
-    allow_credentials=True
 )
-
 # ============================================
 # 라우터 등록
 # ============================================

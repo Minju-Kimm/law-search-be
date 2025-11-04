@@ -20,5 +20,5 @@ COPY . .
 # 컨테이너 포트 (리버스 프록시 뒤에 숨기므로 외부에 바로 노출하진 않음)
 EXPOSE 8080
 
-# uvicorn 실행
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# uvicorn 실행 (모듈 구조로 변경)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

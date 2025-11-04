@@ -2,7 +2,7 @@
 Pydantic models for API request/response validation
 """
 from typing import List, Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 
@@ -37,17 +37,9 @@ class LawOut(BaseModel):
 
 class SearchHit(BaseModel):
     """검색 결과 단일 항목"""
-    lawCode: str = Field(..., description="법령 코드")
-    index: str = Field(..., description="검색된 Meilisearch 인덱스명")
-    articleNo: int = Field(..., description="조 번호")
-    articleSubNo: int = Field(..., description="조의 번호")
-    joCode: str = Field(..., description="6자리 조 코드 (예: 000100)")
-    heading: str = Field(..., description="조문 제목 (예: 제1조(목적))")
-    body: str = Field(..., description="조문 본문")
-    _rankingScore: Optional[float] = Field(None, description="Meilisearch 랭킹 점수")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,  # Allow both field name and alias
+        json_schema_extra={
             "example": {
                 "lawCode": "CIVIL_CODE",
                 "index": "civil-articles",
@@ -59,6 +51,16 @@ class SearchHit(BaseModel):
                 "_rankingScore": 12.5
             }
         }
+    )
+
+    lawCode: str = Field(..., description="법령 코드")
+    index: str = Field(..., description="검색된 Meilisearch 인덱스명")
+    articleNo: int = Field(..., description="조 번호")
+    articleSubNo: int = Field(..., description="조의 번호")
+    joCode: str = Field(..., description="6자리 조 코드 (예: 000100)")
+    heading: str = Field(..., description="조문 제목 (예: 제1조(목적))")
+    body: str = Field(..., description="조문 본문")
+    rankingScore: Optional[float] = Field(None, alias="_rankingScore", description="Meilisearch 랭킹 점수")
 
 
 class SearchResponse(BaseModel):

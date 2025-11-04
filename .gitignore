@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 *.orig
 *.log
+*.backup
 
 # Virtual env
 venv/

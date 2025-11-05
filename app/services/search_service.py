@@ -1,10 +1,11 @@
 """
-Meilisearch 통합 검색 서비스
+Meilisearch 통합 검색 서비스 (검색 정확도 개선 버전)
 """
 import os
 from typing import List, Dict, Any, Optional
 import httpx
 from fastapi import HTTPException
+from app.services.textproc import boost_query_numbers, extract_numbers
 
 
 MEILI_HOST = os.getenv("MEILI_HOST")
@@ -37,16 +38,18 @@ async def search_in_index(
     index_name: str,
     query: str,
     limit: int = 10,
-    offset: int = 0
+    offset: int = 0,
+    strict_mode: bool = True
 ) -> Dict[str, Any]:
     """
-    단일 Meilisearch 인덱스에서 검색
+    단일 Meilisearch 인덱스에서 검색 (정확도 개선 버전)
 
     Args:
         index_name: 인덱스명 (예: "civil-articles")
         query: 검색어
         limit: 결과 제한 수
         offset: 오프셋
+        strict_mode: 엄격 모드 (matchingStrategy="all", 기본값: True)
 
     Returns:
         {
@@ -59,12 +62,22 @@ async def search_in_index(
         HTTPException: Meilisearch 통신 실패 시
     """
     headers = {"Authorization": f"Bearer {MEILI_KEY}"}
+
+    # 쿼리 분석: 숫자 포함 여부 확인
+    query_info = boost_query_numbers(query)
+
+    # 검색 페이로드 구성
     payload = {
         "q": query,
         "limit": limit,
         "offset": offset,
-        "showRankingScore": True  # _rankingScore 필드 포함
+        "showRankingScore": True,  # _rankingScore 필드 포함
+        "matchingStrategy": "all" if strict_mode else "last"  # strict 모드: 모든 단어 매치 필수
     }
+
+    # 숫자가 포함된 경우 특정 필드 우선 검색 (조 번호 매칭 강화)
+    if query_info["has_numbers"]:
+        payload["attributesToSearchOn"] = ["joCode", "heading", "body"]
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -80,13 +93,59 @@ async def search_in_index(
                     detail=f"Meilisearch error [{index_name}] {r.status_code}: {r.text}"
                 )
 
-            return r.json()
+            result = r.json()
+
+            # rescore: 숫자 쿼리인 경우 joCode 정확 매칭에 가중치 부여
+            if query_info["has_numbers"]:
+                result = _rescore_number_query(result, query_info)
+
+            return result
 
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=502,
             detail=f"Meilisearch connection error: {str(e)}"
         )
+
+
+def _rescore_number_query(result: Dict[str, Any], query_info: dict) -> Dict[str, Any]:
+    """
+    숫자 쿼리에 대한 재점수화 (rescore)
+
+    joCode나 heading에 쿼리 숫자가 정확히 포함된 경우 랭킹 점수를 부스트합니다.
+
+    Args:
+        result: Meilisearch 검색 결과
+        query_info: boost_query_numbers()의 반환값
+
+    Returns:
+        재점수화된 검색 결과
+    """
+    numbers = query_info.get("numbers", [])
+    boost_factor = query_info.get("boost_factor", 1.0)
+
+    if not numbers or boost_factor <= 1.0:
+        return result
+
+    hits = result.get("hits", [])
+
+    for hit in hits:
+        jo_code = hit.get("joCode", "")
+        heading = hit.get("heading", "")
+        base_score = hit.get("_rankingScore", 0.0)
+
+        # joCode나 heading에 쿼리 숫자가 정확히 포함되면 점수 부스트
+        boost_applied = False
+
+        for num in numbers:
+            # joCode에 숫자가 포함되거나 (예: "000750" in joCode for "750")
+            # heading에 숫자가 포함되면 (예: "제750조" in heading)
+            if num in jo_code or num in heading:
+                hit["_rankingScore"] = base_score * boost_factor
+                boost_applied = True
+                break
+
+    return result
 
 
 def normalize_hit(hit: Dict[str, Any], index_name: str) -> Dict[str, Any]:

@@ -15,6 +15,8 @@ class SearchScope(str, Enum):
     ALL = "all"
     CIVIL = "civil"
     CRIMINAL = "criminal"
+    CIVIL_PROCEDURE = "civil_procedure"
+    CRIMINAL_PROCEDURE = "criminal_procedure"
 
 
 # ============================================

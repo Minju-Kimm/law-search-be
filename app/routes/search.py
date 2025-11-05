@@ -13,7 +13,7 @@ router = APIRouter(prefix="", tags=["Search"])
 @router.get("/search", response_model=SearchResponse)
 async def search(
     q: str = Query(..., min_length=1, description="검색어"),
-    scope: SearchScope = Query(SearchScope.ALL, description="검색 범위 (all/civil/criminal)"),
+    scope: SearchScope = Query(SearchScope.ALL, description="검색 범위 (all/civil/criminal/civil_procedure/criminal_procedure)"),
     limit: int = Query(10, ge=1, le=50, description="결과 제한 수"),
     offset: int = Query(0, ge=0, description="오프셋")
 ):
@@ -21,13 +21,16 @@ async def search(
     통합/법령별 검색 API
 
     **검색 범위 (scope):**
-    - `all`: 민법 + 형법 통합 검색 (기본값)
+    - `all`: 전체 법령 통합 검색 (민법 + 형법 + 민사소송법 + 형사소송법) (기본값)
     - `civil`: 민법만 검색
     - `criminal`: 형법만 검색
+    - `civil_procedure`: 민사소송법만 검색
+    - `criminal_procedure`: 형사소송법만 검색
 
     **응답:**
     - 모든 인덱스에서 검색한 결과를 `_rankingScore` 기준으로 정렬하여 반환
-    - 민법 결과의 경우 `lawCode`가 자동으로 "CIVIL_CODE"로 보정됨
+    - 각 결과에 `lawCode`, `articleNo`, `heading`, `body` 필드 포함
+    - 인덱스별로 `lawCode`가 자동 매핑됨 (CIVIL_CODE, CRIMINAL_CODE, CIVIL_PROCEDURE_CODE, CRIMINAL_PROCEDURE_CODE)
     """
     q = q.strip()
     if not q:

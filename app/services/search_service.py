@@ -12,6 +12,8 @@ MEILI_HOST = os.getenv("MEILI_HOST")
 MEILI_KEY = os.getenv("MEILI_KEY")
 MEILI_INDEX_CIVIL = os.getenv("MEILI_INDEX_CIVIL", "civil-articles")
 MEILI_INDEX_CRIMINAL = os.getenv("MEILI_INDEX_CRIMINAL", "criminal-articles")
+MEILI_INDEX_CIVIL_PROCEDURE = os.getenv("MEILI_INDEX_CIVIL_PROCEDURE", "civil-procedure-articles")
+MEILI_INDEX_CRIMINAL_PROCEDURE = os.getenv("MEILI_INDEX_CRIMINAL_PROCEDURE", "criminal-procedure-articles")
 
 
 def get_indexes_by_scope(scope: str) -> List[str]:
@@ -19,17 +21,26 @@ def get_indexes_by_scope(scope: str) -> List[str]:
     검색 범위에 따른 인덱스 목록 반환
 
     Args:
-        scope: "all" | "civil" | "criminal"
+        scope: "all" | "civil" | "criminal" | "civil_procedure" | "criminal_procedure"
 
     Returns:
         인덱스명 리스트
     """
     if scope == "all":
-        return [MEILI_INDEX_CIVIL, MEILI_INDEX_CRIMINAL]
+        return [
+            MEILI_INDEX_CIVIL,
+            MEILI_INDEX_CRIMINAL,
+            MEILI_INDEX_CIVIL_PROCEDURE,
+            MEILI_INDEX_CRIMINAL_PROCEDURE
+        ]
     elif scope == "civil":
         return [MEILI_INDEX_CIVIL]
     elif scope == "criminal":
         return [MEILI_INDEX_CRIMINAL]
+    elif scope == "civil_procedure":
+        return [MEILI_INDEX_CIVIL_PROCEDURE]
+    elif scope == "criminal_procedure":
+        return [MEILI_INDEX_CRIMINAL_PROCEDURE]
     else:
         return []
 
@@ -110,9 +121,11 @@ async def search_in_index(
 
 def _rescore_number_query(result: Dict[str, Any], query_info: dict) -> Dict[str, Any]:
     """
-    숫자 쿼리에 대한 재점수화 (rescore)
+    숫자 쿼리에 대한 재점수화 (rescore) - 개선 버전
 
-    joCode나 heading에 쿼리 숫자가 정확히 포함된 경우 랭킹 점수를 부스트합니다.
+    조 번호 검색 시 정확한 매칭을 우선하도록 강화:
+    - "100" 검색 시: 제100조 > 제1000조
+    - joCode 끝부분이 정확히 일치하면 강한 부스트 적용
 
     Args:
         result: Meilisearch 검색 결과
@@ -132,18 +145,36 @@ def _rescore_number_query(result: Dict[str, Any], query_info: dict) -> Dict[str,
     for hit in hits:
         jo_code = hit.get("joCode", "")
         heading = hit.get("heading", "")
+        article_no = hit.get("articleNo", 0)
         base_score = hit.get("_rankingScore", 0.0)
 
-        # joCode나 heading에 쿼리 숫자가 정확히 포함되면 점수 부스트
-        boost_applied = False
+        # 각 숫자에 대해 매칭 강도 계산
+        max_boost = 1.0
 
         for num in numbers:
-            # joCode에 숫자가 포함되거나 (예: "000750" in joCode for "750")
-            # heading에 숫자가 포함되면 (예: "제750조" in heading)
-            if num in jo_code or num in heading:
-                hit["_rankingScore"] = base_score * boost_factor
-                boost_applied = True
-                break
+            # 1. 조 번호 정확 매칭 (최우선) - 5배 부스트
+            if str(article_no) == num:
+                max_boost = max(max_boost, 5.0)
+                continue
+
+            # 2. joCode 끝부분 정확 매칭 - 4배 부스트
+            # 예: "100" 검색 시 "000100"은 매칭, "001000"은 미매칭
+            if jo_code.endswith(num.zfill(len(num))):
+                max_boost = max(max_boost, 4.0)
+                continue
+
+            # 3. joCode 부분 매칭 - 1.5배 부스트
+            if num in jo_code:
+                max_boost = max(max_boost, 1.5)
+                continue
+
+            # 4. heading에 숫자 포함 - 1.3배 부스트
+            if num in heading:
+                max_boost = max(max_boost, 1.3)
+
+        # 부스트 적용
+        if max_boost > 1.0:
+            hit["_rankingScore"] = base_score * max_boost
 
     return result
 
@@ -168,13 +199,17 @@ def normalize_hit(hit: Dict[str, Any], index_name: str) -> Dict[str, Any]:
             "_rankingScore": float | None
         }
     """
-    # 민법 인덱스는 lawCode 필드가 없으므로 보정
+    # 인덱스명에서 lawCode 매핑 (lawCode 필드가 없을 경우 보정)
     law_code = hit.get("lawCode")
     if not law_code:
         if index_name == MEILI_INDEX_CIVIL:
             law_code = "CIVIL_CODE"
         elif index_name == MEILI_INDEX_CRIMINAL:
             law_code = "CRIMINAL_CODE"
+        elif index_name == MEILI_INDEX_CIVIL_PROCEDURE:
+            law_code = "CIVIL_PROCEDURE_CODE"
+        elif index_name == MEILI_INDEX_CRIMINAL_PROCEDURE:
+            law_code = "CRIMINAL_PROCEDURE_CODE"
         else:
             law_code = "UNKNOWN"
 

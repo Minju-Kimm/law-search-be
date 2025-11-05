@@ -61,6 +61,7 @@ class SearchHit(BaseModel):
     heading: str = Field(..., description="조문 제목 (예: 제1조(목적))")
     body: str = Field(..., description="조문 본문")
     rankingScore: Optional[float] = Field(None, alias="_rankingScore", description="Meilisearch 랭킹 점수")
+    appScore: Optional[float] = Field(None, alias="_appScore", description="애플리케이션 재스코어링 점수")
 
 
 class SearchResponse(BaseModel):

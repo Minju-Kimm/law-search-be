@@ -30,15 +30,40 @@ app = FastAPI(
 )
 
 # ============================================
-# CORS 설정
+# CORS 설정 (보안 강화)
 # ============================================
+#
+# 브라우저 CORS 정책:
+# - Vary: Origin 헤더는 FastAPI CORSMiddleware가 자동으로 추가합니다
+# - Preflight 요청(OPTIONS)도 자동으로 처리됩니다
+# - Credentials(쿠키 등) 사용 시 와일드카드(*) 사용 불가
+#
+# 프리플라이트 테스트 커맨드:
+#   curl -X OPTIONS http://localhost:8080/search \
+#     -H "Origin: https://your-frontend.com" \
+#     -H "Access-Control-Request-Method: GET" \
+#     -v
+#
+# ============================================
+
 def parse_origins(env_value: str):
     """
+    CORS Origin 목록 파싱 및 검증
+
     'a,b , c/' 같은 입력을
     - 공백 제거
     - 끝의 슬래시 제거
     - http/https 스킴 필수
     로 정리해서 리스트로 반환
+
+    Args:
+        env_value: 환경변수 CORS_ORIGINS 값 (콤마 구분)
+
+    Returns:
+        검증된 origin 리스트
+
+    Raises:
+        ValueError: 스킴이 없거나 잘못된 origin이 있을 때
     """
     origins = []
     for raw in (env_value or "").split(","):
@@ -72,10 +97,11 @@ if ALLOW_CREDENTIALS and any(o == "*" for o in origins):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,            # 환경변수 기반
+    allow_origins=origins,            # 환경변수 기반 (와일드카드 금지)
     allow_credentials=ALLOW_CREDENTIALS,
-    allow_methods=["GET", "OPTIONS"], # 필요 메서드만
-    allow_headers=["*"],
+    allow_methods=["GET", "OPTIONS"], # 필요 메서드만 (보안 강화)
+    allow_headers=["*"],              # 요청 헤더는 허용
+    # Vary: Origin 헤더는 자동으로 추가됩니다 (CloudFlare 캐시 고려)
 )
 # ============================================
 # 라우터 등록

@@ -17,7 +17,7 @@ class User(SQLModel, table=True):
     )
     provider: str = Field(max_length=20, nullable=False)
     provider_id: str = Field(max_length=128, nullable=False)
-    email: str = Field(nullable=False, index=True)
+    email: Optional[str] = Field(default=None, nullable=True, index=True)
     name: Optional[str] = Field(default=None, nullable=True)
     picture: Optional[str] = Field(default=None, nullable=True)
     created_at: datetime = Field(
@@ -28,7 +28,7 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         nullable=False,
-        sa_column_kwargs={"server_default": text("now()"), "onupdate": datetime.utcnow}
+        sa_column_kwargs={"server_default": text("now()")}
     )
 
     __table_args__ = (

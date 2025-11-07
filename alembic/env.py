@@ -18,6 +18,10 @@ config = context.config
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Add sslmode=require for production if not already present
+    if "sslmode" not in DATABASE_URL and os.getenv("ENV", "development") == "production":
+        separator = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = f"{DATABASE_URL}{separator}sslmode=require"
 
 # Set the sqlalchemy.url in the config
 if DATABASE_URL:

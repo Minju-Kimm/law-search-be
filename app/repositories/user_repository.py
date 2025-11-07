@@ -47,7 +47,7 @@ def create_user(
     session: Session,
     provider: str,
     provider_id: str,
-    email: str,
+    email: Optional[str] = None,
     name: Optional[str] = None,
     picture: Optional[str] = None
 ) -> User:
@@ -58,7 +58,7 @@ def create_user(
         session: Database session
         provider: OAuth provider
         provider_id: Provider's user ID
-        email: User email
+        email: User email (optional)
         name: User name (optional)
         picture: Profile picture URL (optional)
 
@@ -98,6 +98,8 @@ def update_user(
     Returns:
         Updated User object or None if not found
     """
+    from datetime import datetime
+
     user = session.get(User, user_id)
     if not user:
         return None
@@ -108,6 +110,9 @@ def update_user(
         user.name = name
     if picture is not None:
         user.picture = picture
+
+    # Update timestamp at application level
+    user.updated_at = datetime.utcnow()
 
     session.add(user)
     session.commit()

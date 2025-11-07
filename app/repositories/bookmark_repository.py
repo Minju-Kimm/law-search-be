@@ -155,7 +155,7 @@ def delete_bookmark(session: Session, bookmark_id: int) -> bool:
 
 def delete_bookmarks_by_user_id(session: Session, user_id: int) -> int:
     """
-    Delete all bookmarks for a user
+    Delete all bookmarks for a user (uses bulk delete)
 
     Args:
         session: Database session
@@ -164,12 +164,10 @@ def delete_bookmarks_by_user_id(session: Session, user_id: int) -> int:
     Returns:
         Number of bookmarks deleted
     """
-    statement = select(Bookmark).where(Bookmark.user_id == user_id)
-    bookmarks = session.exec(statement).all()
-    count = len(bookmarks)
+    from sqlalchemy import delete
 
-    for bookmark in bookmarks:
-        session.delete(bookmark)
-
+    # Use bulk delete for better performance
+    statement = delete(Bookmark).where(Bookmark.user_id == user_id)
+    result = session.exec(statement)
     session.commit()
-    return count
+    return result.rowcount

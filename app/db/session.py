@@ -10,6 +10,10 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # SQLAlchemy 2.0 defaults to psycopg2, but we use psycopg3 (psycopg[binary])
 if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Add sslmode=require for production if not already present
+    if "sslmode" not in DATABASE_URL and os.getenv("ENV", "development") == "production":
+        separator = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = f"{DATABASE_URL}{separator}sslmode=require"
 
 # SQLModel engine
 engine = create_engine(

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 # Configuration
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
 IS_PRODUCTION = os.getenv("ENV", "development") == "production"
 
 
@@ -36,14 +37,14 @@ async def login(provider: str, request: Request):
     # OAuth client
     client = getattr(oauth, provider)
 
-    # Redirect URI for callback
-    redirect_uri = request.url_for('auth_callback', provider=provider)
+    # Redirect URI for callback - use explicit BACKEND_URL to avoid proxy/domain issues
+    redirect_uri = f"{BACKEND_URL}/api/auth/callback/{provider}"
 
     # Redirect to OAuth provider
     return await client.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/auth/{provider}", name="auth_callback")
+@router.get("/callback/{provider}", name="auth_callback")
 async def auth_callback(
     provider: str,
     request: Request,

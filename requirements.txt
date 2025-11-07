@@ -9,3 +9,5 @@ pyjwt==2.8.0
 sqlalchemy==2.0.23
 alembic==1.13.1
 python-multipart==0.0.6
+itsdangerous==2.1.2
+

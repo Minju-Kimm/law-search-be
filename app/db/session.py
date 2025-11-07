@@ -8,6 +8,11 @@ from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Convert postgresql:// to postgresql+psycopg:// for psycopg3 driver
+# SQLAlchemy 2.0 defaults to psycopg2, but we use psycopg3 (psycopg[binary])
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 # SQLAlchemy engine
 engine = create_engine(
     DATABASE_URL,

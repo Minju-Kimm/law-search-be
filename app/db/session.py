@@ -1,10 +1,8 @@
 """
-Database session management with SQLAlchemy
+Database session management with SQLModel
 """
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import create_engine, Session, SQLModel
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -13,19 +11,22 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# SQLAlchemy engine
+# SQLModel engine
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_size=5,
-    max_overflow=10
+    max_overflow=10,
+    echo=False  # Set to True for SQL query logging
 )
 
-# Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
-Base = declarative_base()
+def create_db_and_tables():
+    """
+    Create all tables in the database
+    Note: For production, use Alembic migrations instead
+    """
+    SQLModel.metadata.create_all(engine)
 
 
 def get_db():
@@ -37,8 +38,5 @@ def get_db():
         def route(db: Session = Depends(get_db)):
             ...
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with Session(engine) as session:
+        yield session

@@ -4,13 +4,16 @@
 민법 + 형법 통합 검색 시스템
 - PostgreSQL: 정본 저장소
 - Meilisearch: 전문 검색 엔진 (2개 인덱스)
+- OAuth: Google, Naver 로그인
+- JWT: 인증 토큰
 """
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.routes import laws, search, articles
+from app.routers import laws, search, articles, auth, users, bookmarks
 from app.database import health_check_db
 from app.services.search_service import health_check_meili
 from app.models import HealthResponse
@@ -23,11 +26,17 @@ load_dotenv()
 
 app = FastAPI(
     title="Law Search API",
-    description="민법 + 형법 통합 검색 시스템",
-    version="2.0.0",
+    description="민법 + 형법 통합 검색 시스템 with OAuth",
+    version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# ============================================
+# Session Middleware (required for OAuth)
+# ============================================
+SESSION_SECRET = os.getenv("SESSION_SECRET", os.getenv("JWT_SECRET", "your-secret-key-change-in-production"))
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 # ============================================
 # CORS 설정
@@ -73,14 +82,20 @@ if ALLOW_CREDENTIALS and any(o == "*" for o in origins):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,            # 환경변수 기반
-    allow_credentials=ALLOW_CREDENTIALS,
-    allow_methods=["GET", "OPTIONS"], # 필요 메서드만
+    allow_credentials=True,           # OAuth와 쿠키를 위해 필수
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # 모든 필요 메서드
     allow_headers=["*"],
 )
 # ============================================
 # 라우터 등록
 # ============================================
 
+# Authentication & User routes
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(bookmarks.router)
+
+# Law search routes
 app.include_router(laws.router)
 app.include_router(search.router)
 app.include_router(articles.router)
@@ -129,11 +144,23 @@ def root():
     """
     return {
         "service": "Law Search API",
-        "version": "2.0.0",
-        "description": "민법 + 형법 통합 검색 시스템",
+        "version": "3.0.0",
+        "description": "민법 + 형법 통합 검색 시스템 with OAuth",
         "docs": "/docs",
         "endpoints": {
             "health": "/health",
+            "auth": {
+                "login": "/api/auth/login/{provider}",
+                "logout": "/api/auth/logout"
+            },
+            "users": {
+                "me": "/api/users/me"
+            },
+            "bookmarks": {
+                "list": "/api/bookmarks",
+                "create": "/api/bookmarks",
+                "delete": "/api/bookmarks/{id}"
+            },
             "laws": "/laws",
             "search": "/search?q={query}&scope={all|civil|criminal}",
             "article": "/articles/{lawCode}/{articleNo}[/{articleSubNo}]"

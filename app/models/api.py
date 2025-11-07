@@ -2,7 +2,8 @@
 Pydantic models for API request/response validation
 """
 from typing import List, Optional, Any
-from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from enum import Enum
 
 
@@ -125,5 +126,71 @@ class HealthResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "ok": True
+            }
+        }
+
+
+# ============================================
+# User & Auth Models
+# ============================================
+
+class UserOut(BaseModel):
+    """User response model"""
+    id: int = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+    name: Optional[str] = Field(None, description="User name")
+    provider: str = Field(..., description="OAuth provider (google/naver)")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "email": "user@example.com",
+                "name": "홍길동",
+                "provider": "google",
+                "created_at": "2025-11-07T00:00:00Z"
+            }
+        }
+
+
+# ============================================
+# Bookmark Models
+# ============================================
+
+class BookmarkCreate(BaseModel):
+    """Bookmark creation request"""
+    lawCode: str = Field(..., description="법령 코드 (예: CIVIL_CODE)")
+    articleNo: int = Field(..., description="조 번호", ge=1)
+    articleSubNo: int = Field(0, description="조의 번호", ge=0)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "lawCode": "CIVIL_CODE",
+                "articleNo": 103,
+                "articleSubNo": 0
+            }
+        }
+
+
+class BookmarkOut(BaseModel):
+    """Bookmark response model"""
+    id: int = Field(..., description="Bookmark ID")
+    lawCode: str = Field(..., description="법령 코드")
+    articleNo: int = Field(..., description="조 번호")
+    articleSubNo: int = Field(..., description="조의 번호")
+    created_at: datetime = Field(..., description="북마크 생성 시각")
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "lawCode": "CIVIL_CODE",
+                "articleNo": 103,
+                "articleSubNo": 0,
+                "created_at": "2025-11-07T00:00:00Z"
             }
         }

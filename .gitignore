@@ -15,7 +15,6 @@ env/
 # --- Environment Files ---
 .env
 .env.*
-!.env.example
 
 # --- Docker ---
 pg_data/

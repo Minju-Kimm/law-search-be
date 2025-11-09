@@ -147,13 +147,14 @@ async def auth_callback(
         redirect_url = f"{FRONTEND_URL}/auth/success"
         response = RedirectResponse(url=redirect_url)
 
-        # Set HttpOnly cookie
+        # Set HttpOnly cookie with SameSite=None for cross-site requests
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=IS_PRODUCTION,  # HTTPS only in production
-            samesite="lax",
+            secure=True,  # Required for SameSite=None
+            samesite="none",  # Allow cross-site cookie (frontend → API)
+            path="/",
             max_age=7 * 24 * 60 * 60  # 7 days
         )
 

@@ -4,7 +4,7 @@ OAuth authentication routes (Google, Naver)
 import os
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.db import User
@@ -174,6 +174,6 @@ async def logout():
     Returns:
         Response with cleared cookie
     """
-    response = Response(content={"message": "Logged out successfully"})
+    response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie(key="access_token")
     return response

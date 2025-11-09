@@ -160,17 +160,23 @@ class UserOut(BaseModel):
 # ============================================
 
 class BookmarkCreate(BaseModel):
-    """Bookmark creation request"""
-    lawCode: str = Field(..., description="법령 코드 (예: CIVIL_CODE)")
-    articleNo: int = Field(..., description="조 번호", ge=1)
-    articleSubNo: int = Field(0, description="조의 번호", ge=0)
+    """Bookmark creation request - supports multiple input formats"""
+    # Primary fields
+    lawCode: Optional[str] = Field(None, description="법령 코드 (예: CIVIL_CODE)")
+    articleNo: Optional[str] = Field(None, description="조 번호 (예: '760')")
+    memo: Optional[str] = Field(None, description="메모")
+
+    # Alternative input fields for flexibility
+    joCode: Optional[str] = Field(None, description="조 코드 (예: '076000')")
+    heading: Optional[str] = Field(None, description="조문 제목 (예: '제760조')")
+    lawType: Optional[str] = Field(None, description="법령 타입 (예: 'civil')")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "lawCode": "CIVIL_CODE",
-                "articleNo": 103,
-                "articleSubNo": 0
+                "articleNo": "760",
+                "memo": "불법행위 책임"
             }
         }
 
@@ -179,9 +185,9 @@ class BookmarkOut(BaseModel):
     """Bookmark response model"""
     id: int = Field(..., description="Bookmark ID")
     lawCode: str = Field(..., description="법령 코드")
-    articleNo: int = Field(..., description="조 번호")
-    articleSubNo: int = Field(..., description="조의 번호")
-    created_at: datetime = Field(..., description="북마크 생성 시각")
+    articleNo: str = Field(..., description="조 번호")
+    memo: Optional[str] = Field(None, description="메모")
+    createdAt: datetime = Field(..., description="북마크 생성 시각")
 
     class Config:
         from_attributes = True
@@ -189,8 +195,8 @@ class BookmarkOut(BaseModel):
             "example": {
                 "id": 1,
                 "lawCode": "CIVIL_CODE",
-                "articleNo": 103,
-                "articleSubNo": 0,
-                "created_at": "2025-11-07T00:00:00Z"
+                "articleNo": "760",
+                "memo": "불법행위 책임",
+                "createdAt": "2025-11-07T00:00:00Z"
             }
         }

@@ -1,9 +1,9 @@
 """
 Pydantic models for API request/response validation
 """
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from enum import Enum
 
 
@@ -163,13 +163,21 @@ class BookmarkCreate(BaseModel):
     """Bookmark creation request - supports multiple input formats"""
     # Primary fields
     lawCode: Optional[str] = Field(None, description="법령 코드 (예: CIVIL_CODE)")
-    articleNo: Optional[str] = Field(None, description="조 번호 (예: '760')")
+    articleNo: Optional[Union[str, int]] = Field(None, description="조 번호 (예: '760' 또는 760)")
     memo: Optional[str] = Field(None, description="메모")
 
     # Alternative input fields for flexibility
     joCode: Optional[str] = Field(None, description="조 코드 (예: '076000')")
     heading: Optional[str] = Field(None, description="조문 제목 (예: '제760조')")
     lawType: Optional[str] = Field(None, description="법령 타입 (예: 'civil')")
+
+    @field_validator('articleNo', mode='before')
+    @classmethod
+    def convert_article_no_to_string(cls, v):
+        """Convert articleNo to string if it's an integer"""
+        if v is not None and isinstance(v, int):
+            return str(v)
+        return v
 
     class Config:
         json_schema_extra = {
@@ -198,5 +206,43 @@ class BookmarkOut(BaseModel):
                 "articleNo": "760",
                 "memo": "불법행위 책임",
                 "createdAt": "2025-11-07T00:00:00Z"
+            }
+        }
+
+
+class EnrichedBookmarkOut(BaseModel):
+    """Enriched bookmark response with full article details"""
+    # Bookmark info
+    id: int = Field(..., description="Bookmark ID")
+    lawCode: str = Field(..., description="법령 코드")
+    articleNo: str = Field(..., description="조 번호")
+    memo: Optional[str] = Field(None, description="메모")
+    createdAt: datetime = Field(..., description="북마크 생성 시각")
+
+    # Article details
+    articleSubNo: int = Field(..., description="조의 번호")
+    joCode: str = Field(..., description="6자리 조 코드")
+    heading: str = Field(..., description="조문 제목")
+    body: str = Field(..., description="조문 본문")
+    notes: List[str] = Field(default_factory=list, description="비고 (예: [전문개정 2023.03.14])")
+    clauses: Any = Field(None, description="항/호/목 구조화 데이터 (JSONB)")
+    updatedAt: Optional[str] = Field(None, description="최종 수정 시각 (ISO 8601)")
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "lawCode": "CIVIL_CODE",
+                "articleNo": "760",
+                "memo": "불법행위 책임",
+                "createdAt": "2025-11-07T00:00:00Z",
+                "articleSubNo": 0,
+                "joCode": "076000",
+                "heading": "제760조(불법행위의 내용)",
+                "body": "고의 또는 과실로 인한 위법행위로 타인에게 손해를 가한 자는 그 손해를 배상할 책임이 있다.",
+                "notes": [],
+                "clauses": {},
+                "updatedAt": "2025-11-04T12:34:56Z"
             }
         }

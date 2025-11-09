@@ -173,7 +173,24 @@ async def logout():
 
     Returns:
         Response with cleared cookie
+
+    Note:
+        Manually sets Set-Cookie header to ensure SameSite=None is properly applied.
+        FastAPI's set_cookie() may not correctly handle samesite="none" in some cases.
+        This is required for proper cookie deletion in CORS + credentials scenarios.
     """
     response = JSONResponse(content={"message": "Logged out successfully"})
-    response.delete_cookie(key="access_token")
+
+    # Manually build Set-Cookie header to ensure SameSite=None
+    # Must match login cookie attributes exactly: httponly, secure, samesite, path
+    cookie_header = (
+        "access_token=; "
+        "Path=/; "
+        "HttpOnly; "
+        "Secure; "
+        "SameSite=None; "
+        "Max-Age=0"
+    )
+    response.headers["Set-Cookie"] = cookie_header
+
     return response

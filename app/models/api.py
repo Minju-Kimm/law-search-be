@@ -1,9 +1,9 @@
 """
 Pydantic models for API request/response validation
 """
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from enum import Enum
 
 
@@ -163,13 +163,21 @@ class BookmarkCreate(BaseModel):
     """Bookmark creation request - supports multiple input formats"""
     # Primary fields
     lawCode: Optional[str] = Field(None, description="법령 코드 (예: CIVIL_CODE)")
-    articleNo: Optional[str] = Field(None, description="조 번호 (예: '760')")
+    articleNo: Optional[Union[str, int]] = Field(None, description="조 번호 (예: '760' 또는 760)")
     memo: Optional[str] = Field(None, description="메모")
 
     # Alternative input fields for flexibility
     joCode: Optional[str] = Field(None, description="조 코드 (예: '076000')")
     heading: Optional[str] = Field(None, description="조문 제목 (예: '제760조')")
     lawType: Optional[str] = Field(None, description="법령 타입 (예: 'civil')")
+
+    @field_validator('articleNo', mode='before')
+    @classmethod
+    def convert_article_no_to_string(cls, v):
+        """Convert articleNo to string if it's an integer"""
+        if v is not None and isinstance(v, int):
+            return str(v)
+        return v
 
     class Config:
         json_schema_extra = {

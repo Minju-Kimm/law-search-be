@@ -144,7 +144,7 @@ async def auth_callback(
         access_token = create_access_token(data={"sub": user.id})
 
         # Create redirect response
-        redirect_url = f"{FRONTEND_URL}/auth/success"
+        redirect_url = f"{FRONTEND_URL}"
         response = RedirectResponse(url=redirect_url)
 
         # Set HttpOnly cookie with SameSite=None for cross-site requests

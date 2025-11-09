@@ -200,3 +200,41 @@ class BookmarkOut(BaseModel):
                 "createdAt": "2025-11-07T00:00:00Z"
             }
         }
+
+
+class EnrichedBookmarkOut(BaseModel):
+    """Enriched bookmark response with full article details"""
+    # Bookmark info
+    id: int = Field(..., description="Bookmark ID")
+    lawCode: str = Field(..., description="법령 코드")
+    articleNo: str = Field(..., description="조 번호")
+    memo: Optional[str] = Field(None, description="메모")
+    createdAt: datetime = Field(..., description="북마크 생성 시각")
+
+    # Article details
+    articleSubNo: int = Field(..., description="조의 번호")
+    joCode: str = Field(..., description="6자리 조 코드")
+    heading: str = Field(..., description="조문 제목")
+    body: str = Field(..., description="조문 본문")
+    notes: List[str] = Field(default_factory=list, description="비고 (예: [전문개정 2023.03.14])")
+    clauses: Any = Field(None, description="항/호/목 구조화 데이터 (JSONB)")
+    updatedAt: Optional[str] = Field(None, description="최종 수정 시각 (ISO 8601)")
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "lawCode": "CIVIL_CODE",
+                "articleNo": "760",
+                "memo": "불법행위 책임",
+                "createdAt": "2025-11-07T00:00:00Z",
+                "articleSubNo": 0,
+                "joCode": "076000",
+                "heading": "제760조(불법행위의 내용)",
+                "body": "고의 또는 과실로 인한 위법행위로 타인에게 손해를 가한 자는 그 손해를 배상할 책임이 있다.",
+                "notes": [],
+                "clauses": {},
+                "updatedAt": "2025-11-04T12:34:56Z"
+            }
+        }

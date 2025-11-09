@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import BookmarkCreate, BookmarkOut
+from app.models import BookmarkCreate, BookmarkOut, EnrichedBookmarkOut
 from app.models.db import User, Bookmark
+from app.database import get_article_by_law_code
 
 router = APIRouter(prefix="/api/bookmarks", tags=["Bookmarks"])
 
@@ -63,7 +64,7 @@ def normalize_article_no(data: BookmarkCreate) -> str:
     raise ValueError("articleNo, joCode, or heading is required")
 
 
-@router.get("", response_model=List[BookmarkOut])
+@router.get("", response_model=List[EnrichedBookmarkOut])
 async def get_bookmarks(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
@@ -71,14 +72,14 @@ async def get_bookmarks(
     db: Session = Depends(get_db)
 ):
     """
-    Get all bookmarks for the current user
+    Get all bookmarks for the current user with full article details
 
     Args:
         limit: Maximum number of bookmarks to return (default: 100, max: 1000)
         offset: Number of bookmarks to skip for pagination (default: 0)
 
     Returns:
-        List of bookmarks ordered by creation date (newest first)
+        List of enriched bookmarks with full article information ordered by creation date (newest first)
 
     Requires:
         Valid JWT token in HttpOnly cookie
@@ -87,17 +88,58 @@ async def get_bookmarks(
         Bookmark.user_id == current_user.id
     ).order_by(Bookmark.created_at.desc()).limit(limit).offset(offset).all()
 
-    # Convert to response model with camelCase
-    return [
-        BookmarkOut(
-            id=b.id,
-            lawCode=b.law_code,
-            articleNo=b.article_no,
-            memo=b.memo,
-            createdAt=b.created_at
-        )
-        for b in bookmarks
-    ]
+    # Enrich each bookmark with article details
+    enriched_bookmarks = []
+    for b in bookmarks:
+        # Fetch article details from database
+        article = get_article_by_law_code(b.law_code, int(b.article_no), 0)
+
+        if article:
+            # Convert updated_at to ISO 8601 format
+            updated_at = None
+            if article.get("updated_at"):
+                updated_at = article["updated_at"].isoformat()
+
+            enriched_bookmarks.append(
+                EnrichedBookmarkOut(
+                    # Bookmark info
+                    id=b.id,
+                    lawCode=b.law_code,
+                    articleNo=b.article_no,
+                    memo=b.memo,
+                    createdAt=b.created_at,
+                    # Article details
+                    articleSubNo=article["article_sub_no"],
+                    joCode=article["jo_code"],
+                    heading=article.get("heading") or "",
+                    body=article["body"],
+                    notes=article.get("notes") or [],
+                    clauses=article.get("clauses_json"),
+                    updatedAt=updated_at
+                )
+            )
+        else:
+            # If article not found, still return bookmark with empty article fields
+            enriched_bookmarks.append(
+                EnrichedBookmarkOut(
+                    # Bookmark info
+                    id=b.id,
+                    lawCode=b.law_code,
+                    articleNo=b.article_no,
+                    memo=b.memo,
+                    createdAt=b.created_at,
+                    # Empty article details
+                    articleSubNo=0,
+                    joCode="",
+                    heading="",
+                    body="",
+                    notes=[],
+                    clauses=None,
+                    updatedAt=None
+                )
+            )
+
+    return enriched_bookmarks
 
 
 @router.post("", response_model=BookmarkOut, status_code=status.HTTP_201_CREATED)

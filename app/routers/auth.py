@@ -173,7 +173,24 @@ async def logout():
 
     Returns:
         Response with cleared cookie
+
+    Note:
+        Uses set_cookie() instead of delete_cookie() to ensure cookie attributes
+        (httponly, secure, samesite, path) match the login cookie exactly.
+        This is required for proper cookie deletion in CORS + credentials scenarios.
     """
     response = JSONResponse(content={"message": "Logged out successfully"})
-    response.delete_cookie(key="access_token")
+
+    # Clear cookie with EXACT same attributes as login cookie (line 151-159)
+    # Cookie deletion requires matching: path, domain, secure, samesite, httponly
+    response.set_cookie(
+        key="access_token",
+        value="",  # Empty value
+        httponly=True,  # Must match login
+        secure=True,  # Must match login (required for SameSite=None)
+        samesite="none",  # Must match login (allow cross-site)
+        path="/",  # Must match login
+        max_age=0  # Expire immediately (delete)
+    )
+
     return response
